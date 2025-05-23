@@ -66,3 +66,10 @@ st.metric("Pico máximo", f"{int(pico)}")
 
 # Footer
 st.info("Datos obtenidos del Instituto de Salud Carlos III. © 2025")
+st.title("📊 Dashboard de COVID-19 en España")
+st.markdown("""
+Este panel muestra la evolución de la pandemia de COVID-19 en España, por comunidad autónoma y tipo de métrica (hospitalizaciones, UCI, fallecimientos).  
+Los datos proceden del Instituto de Salud Carlos III.  
+""")
+st.markdown("---")
+st.markdown("Creado por [Cesar Vida] | (https://github.com/cesarvida/covid-es-comunidades)")
