@@ -40,8 +40,9 @@ metrica = metricas[metrica_legible]
 
 # Filtro de fechas
 fechas = pd.to_datetime(df["fecha"].dropna().sort_values().unique())
-fecha_min = fechas.min()
-fecha_max = fechas.max()
+fecha_min = pd.to_datetime(fechas.min()).date()
+fecha_max = pd.to_datetime(fechas.max()).date()
+
 
 fecha_rango = st.slider(
     "Rango de fechas",
@@ -53,10 +54,11 @@ fecha_rango = st.slider(
 
 
 # Filtrar y agrupar
+df["fecha"] = pd.to_datetime(df["fecha"])
 df_filtrado = df[
     (df["comunidad"] == comunidad) &
-    (df["fecha"] >= fecha_rango[0]) &
-    (df["fecha"] <= fecha_rango[1])
+    (df["fecha"].dt.date >= fecha_rango[0]) &
+    (df["fecha"].dt.date <= fecha_rango[1])
 ]
 df_agregado = df_filtrado.groupby("fecha")[metrica].sum().reset_index()
 df_agregado["media_7d"] = df_agregado[metrica].rolling(window=7).mean()
