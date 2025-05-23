@@ -1,69 +1,68 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="COVID España", layout="centered")
+# Título principal de la app
+st.set_page_config(page_title="COVID-19 en España", layout="wide")
 st.title("📊 Dashboard de COVID-19 en España")
-st.success("La app se ha cargado correctamente.")
 
+# Cargar datos
 @st.cache_data
 def load_data():
-    df1 = pd.read_csv("data/casos_hosp_uci_def_sexo_edad_provres.csv")
-    df2 = pd.read_csv("data/hosp_uci_def_sexo_edad_provres_todas_edades.csv")
-    df = pd.concat([df1, df2], ignore_index=True)
+    historico = pd.read_csv("data/casos_hosp_uci_def_sexo_edad_provres.csv")
+    reciente = pd.read_csv("data/hosp_uci_def_sexo_edad_provres_todas_edades.csv")
+    df = pd.concat([historico, reciente], ignore_index=True)
     df["fecha"] = pd.to_datetime(df["fecha"])
+    df = df.groupby(["provincia_iso", "fecha"])[["num_hosp", "num_uci", "num_def"]].sum().reset_index()
+    mapa_provincias = {
+        "AN": "Andalucía", "AR": "Aragón", "AS": "Asturias", "IB": "Baleares", "CN": "Canarias", "CB": "Cantabria",
+        "CM": "Castilla-La Mancha", "CL": "Castilla y León", "CT": "Cataluña", "VC": "Comunidad Valenciana",
+        "EX": "Extremadura", "GA": "Galicia", "MD": "Madrid", "MC": "Murcia", "NC": "Navarra", "PV": "País Vasco",
+        "RI": "La Rioja", "CE": "Ceuta", "ML": "Melilla"
+    }
+    df["comunidad"] = df["provincia_iso"].map(mapa_provincias)
+    df = df.dropna(subset=["comunidad"])
     return df
 
 df = load_data()
 
-# Mapeo de provincias a comunidades (simple)
-mapa = {
-    "M": "Madrid", "B": "Cataluña", "V": "Comunidad Valenciana", "SE": "Andalucía",
-    "Z": "Aragón", "LO": "La Rioja", "BI": "País Vasco", "O": "Asturias",
-    "C": "Galicia", "SA": "Castilla y León", "TO": "Castilla-La Mancha"
-}
-df["comunidad"] = df["provincia_iso"].map(mapa)
+# Sidebar de opciones
+comunidades = df["comunidad"].unique()
+comunidad = st.selectbox("Selecciona la comunidad autónoma", sorted(comunidades))
 
-# Eliminar filas sin comunidad identificada
-df = df.dropna(subset=["comunidad"])
+metrica = st.selectbox("Selecciona la métrica", ["Hospitalizados", "UCI", "Fallecidos"])
+columna = {"Hospitalizados": "num_hosp", "UCI": "num_uci", "Fallecidos": "num_def"}[metrica]
 
-# Filtros
-comunidades = sorted(df["comunidad"].unique())
-comunidad = st.selectbox("Selecciona la comunidad autónoma", comunidades)
+# Slider de fechas
+fechas = df["fecha"].sort_values().unique()
+fecha_min, fecha_max = fechas[0], fechas[-1]
+fecha_rango = st.slider("Rango de fechas", min_value=fecha_min, max_value=fecha_max, value=(fecha_min, fecha_max))
 
-metricas = {
-    "Hospitalizados": "num_hosp",
-    "Ingresos UCI": "num_uci",
-    "Defunciones": "num_def"
-}
-metrica_legible = st.selectbox("Selecciona la métrica", list(metricas.keys()))
-metrica = metricas[metrica_legible]
+# Filtrar y graficar
+df_filtrado = df[(df["comunidad"] == comunidad) &
+                 (df["fecha"] >= fecha_rango[0]) &
+                 (df["fecha"] <= fecha_rango[1])].copy()
+df_filtrado = df_filtrado.sort_values("fecha")
+df_filtrado["media_7d"] = df_filtrado[columna].rolling(7).mean()
 
-# Filtro de fechas
-fechas = pd.to_datetime(df["fecha"].dropna().sort_values().unique())
-fecha_min = pd.to_datetime(fechas.min()).date()
-fecha_max = pd.to_datetime(fechas.max()).date()
+st.markdown(f"### Evolución de {metrica} en {comunidad}")
+fig, ax = plt.subplots()
+ax.plot(df_filtrado["fecha"], df_filtrado["media_7d"], color="skyblue", linewidth=2)
+ax.set_xlabel("Fecha")
+ax.set_ylabel(metrica)
+ax.grid(True)
+st.pyplot(fig)
 
+# Métricas clave
+ultima_fecha = df_filtrado["fecha"].max()
+ultimo_valor = df_filtrado[df_filtrado["fecha"] == ultima_fecha][columna].sum()
+pico = df_filtrado[columna].max()
+promedio = round(df_filtrado[columna].mean(), 2)
 
-fecha_rango = st.slider(
-    "Rango de fechas",
-    min_value=fecha_min,
-    max_value=fecha_max,
-    value=(fecha_min, fecha_max)
-)
+st.markdown("### Métricas clave")
+st.metric("Casos actuales", f"{int(ultimo_valor)}")
+st.metric("Promedio diario", f"{promedio}")
+st.metric("Pico máximo", f"{int(pico)}")
 
-
-
-# Filtrar y agrupar
-df["fecha"] = pd.to_datetime(df["fecha"])
-df_filtrado = df[
-    (df["comunidad"] == comunidad) &
-    (df["fecha"].dt.date >= fecha_rango[0]) &
-    (df["fecha"].dt.date <= fecha_rango[1])
-]
-df_agregado = df_filtrado.groupby("fecha")[metrica].sum().reset_index()
-df_agregado["media_7d"] = df_agregado[metrica].rolling(window=7).mean()
-
-# Gráfico
-st.subheader(f"Evolución de {metrica_legible} en {comunidad}")
-st.line_chart(df_agregado.set_index("fecha")["media_7d"])
-
+# Footer
+st.info("Datos obtenidos del Instituto de Salud Carlos III. © 2025")
