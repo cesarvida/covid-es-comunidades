@@ -39,11 +39,25 @@ metrica_legible = st.selectbox("Selecciona la métrica", list(metricas.keys()))
 metrica = metricas[metrica_legible]
 
 # Filtro de fechas
-fechas = df["fecha"].sort_values().unique()
-fecha_min, fecha_max = st.slider("Rango de fechas", min_value=fechas[0], max_value=fechas[-1], value=(fechas[0], fechas[-1]))
+fechas = pd.to_datetime(df["fecha"].dropna().sort_values().unique())
+fecha_min = fechas.min()
+fecha_max = fechas.max()
+
+fecha_rango = st.slider(
+    "Rango de fechas",
+    min_value=fecha_min,
+    max_value=fecha_max,
+    value=(fecha_min, fecha_max),
+    format="DD/MM/YYYY"
+)
+
 
 # Filtrar y agrupar
-df_filtrado = df[(df["comunidad"] == comunidad) & (df["fecha"] >= fecha_min) & (df["fecha"] <= fecha_max)]
+df_filtrado = df[
+    (df["comunidad"] == comunidad) &
+    (df["fecha"] >= fecha_rango[0]) &
+    (df["fecha"] <= fecha_rango[1])
+]
 df_agregado = df_filtrado.groupby("fecha")[metrica].sum().reset_index()
 df_agregado["media_7d"] = df_agregado[metrica].rolling(window=7).mean()
 
