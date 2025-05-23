@@ -47,9 +47,9 @@ fecha_rango = st.slider(
     "Rango de fechas",
     min_value=fecha_min,
     max_value=fecha_max,
-    value=(fecha_min, fecha_max),
-    format="DD/MM/YYYY"
+    value=(fecha_min, fecha_max)
 )
+
 
 
 # Filtrar y agrupar
